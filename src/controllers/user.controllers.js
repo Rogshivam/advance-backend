@@ -3,13 +3,14 @@ import { ApiError } from "../utils/ApiError.js";
 import {User} from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken"
 
 
-const generateAccessansdRefreshToken = async(userId) => 
+const generateAccessansdRefreshTokens = async(userId) => 
 {   
     try {
         const user = await User.findById(userId)
-        const accessToken = user.generateAccessToken
+        const accessToken = user.generateAccessToken()
         const refreshToken = user.generateRefreshToken()
 
         user.refreshToken = refreshToken
@@ -88,21 +89,26 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const {email, username, password} = req.body
 
-    if (!username || !email) {
+    if (!username && !email) {
         throw new ApiError(400, "Please provide username or email")
     }
+    // Here is an alternative of above code based on logic discussed in video:
+    // if (!(username || email)) {
+    //     throw new ApiError(400, "username or email is required")
+        
+    // }
     const user = await User.findOne({
         $or: [{username}, {email}]
     })
     if (!user) {
         throw new ApiError(404, "User not found")
     }
-    const isPasswordValid = await user.isPasswordCorect(password) 
+    const isPasswordValid = await user.isPasswordCorrect(password) 
     if (!isPasswordValid) {
         throw new ApiError(401, "Invalid credentials")
     }
-    const { accessToken, refreshToken } = await generateAccessansdRefreshToken(user._id)
-    const loggedInUser = await User.findById(user._id).select("-password - refreshToken")
+    const { accessToken, refreshToken } = await generateAccessansdRefreshTokens(user._id)
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
 
     const optioins = {
         httpOnly: true,
